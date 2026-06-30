@@ -57,76 +57,24 @@ file), then all reasoning runs as Cypher against the store.
 
 ## Quickstart
 
-```bash
-# 1. Run the graph backend (FalkorDB; browser UI on :3000)
-docker run -d -p 6379:6379 -p 3000:3000 falkordb/falkordb:latest
-
-# 2. Install Holmes + woodpecker-mcp (same venv = simplest)
-pip install holmesgpt woodpecker-mcp
-
-# 3. Point HolmesGPT at it
-holmes ask "find the root cause of the current incident" \
-  -t examples/holmesgpt-toolset.yaml
-```
-
----
-
-## Install
-
-```bash
-pip install woodpecker-mcp                 # FalkorDB backend (default)
-pip install "woodpecker-mcp[kuzu]"         # add the embedded Kuzu backend
-```
-
-woodpecker-mcp stores the graph in **FalkorDB**. Run one:
-
-```bash
-docker run -d -p 6379:6379 -p 3000:3000 falkordb/falkordb:latest   # :3000 = graph browser
-# or: docker compose up -d        # FalkorDB + woodpecker-mcp together
-```
-
----
-
-## Wire into HolmesGPT
-
-For a `pip install holmesgpt` CLI, integration is **config-only** - HolmesGPT
-already ships the MCP client, so there is no Holmes code, fork, or plugin to
-build. The whole flow:
-
-```
-pip install holmesgpt woodpecker-mcp  ->  run FalkorDB  ->  drop in one YAML  ->  holmes ask -t
-```
-
-### Fast path (`woodpecker-mcp setup`)
+HolmesGPT already ships the MCP client, so wiring is config-only - no fork, image,
+or plugin to build. Install, then let woodpecker-mcp configure itself:
 
 ```bash
 pip install holmesgpt woodpecker-mcp
 woodpecker-mcp init        # guided Q&A -> writes a filled-in .env
-woodpecker-mcp setup       # start FalkorDB, wait until ready, register the toolset
+woodpecker-mcp setup       # starts the graph backend, waits until ready, registers the toolset
 holmes ask "find the root cause of the current incident"
 ```
 
-- **`init`** asks a few questions (graph backend, topology, metrics) with numbered
-  options and defaults, then writes a `.env` containing only the vars your choices
-  need - no hand-editing a full template. `--defaults` (or `-y`) skips the prompts
-  and writes the commented template instead; `--force` overwrites an existing
-  `.env`. When stdin is not a TTY (CI, piped) it falls back to the template
-  automatically, so it never hangs.
-- **`setup`** starts FalkorDB in Docker, polls it until it answers
-  (`FalkorDB is ready`), then merges the `woodpecker-graph` toolset into
-  `~/.holmes/config.yaml` (backing up the original; re-running is safe). Flags:
-  `--config PATH` to target a different Holmes config, `--no-falkordb` if you run
-  FalkorDB yourself. The generated `command:` is an **absolute path**, so it works
-  even when Holmes lives in a different virtualenv.
+`init` asks a few questions (graph backend, topology, metrics) and writes a
+`.env`. `setup` starts FalkorDB and merges the `woodpecker-graph` toolset into
+`~/.holmes/config.yaml`, so `holmes ask` picks it up automatically - no `-t` flag
+needed.
 
-After `setup`, `holmes ask` picks up the toolset automatically - no `-t` needed.
-
-Prefer to wire it by hand (the stdio toolset YAML), or run it in-cluster over HTTP
-for the Holmes Operator? Both are covered step by step - with every env var, a
-validation command, and troubleshooting - in the integration guide:
-**[docs/CONFIGURATION.md](docs/CONFIGURATION.md#step-3---integrate-with-holmesgpt)**
-(Method A = stdio, Method B = HTTP). The ready-made toolset file is
-[`examples/holmesgpt-toolset.yaml`](examples/holmesgpt-toolset.yaml).
+**Other setups**, all in the [integration guide](docs/CONFIGURATION.md): no Docker
+or air-gapped (the embedded Kuzu backend), wiring the toolset YAML by hand,
+in-cluster over HTTP for the Holmes Operator, and the full configuration reference.
 
 ---
 
@@ -179,37 +127,18 @@ WP_AUTO_REFRESH=0 woodpecker-mcp diagnose
 
 ## Configuration
 
-All settings have defaults; override only what points at your infra, in the
-`env:` block of the toolset YAML. For local CLI runs, `woodpecker-mcp init`
-generates a `.env` from a guided Q&A (or `cp .env.sample .env` to edit the full
-template) - the app loads `.env` from the working directory (exported env vars and
-the toolset `env:` block take precedence).
+Everything has a working default; set only what points at your infra. Run
+`woodpecker-mcp init` to generate a `.env` from a guided Q&A, or put the `WP_*`
+vars in the toolset's `env:` block. Three independent seams, mixed and matched:
 
-The common ones (full table with per-backend deep-dives lives in the guide):
+- **graph** (`WP_GRAPH_BACKEND`): `falkordb` (server, default) or `kuzu` (embedded, no Docker - good for air-gapped)
+- **topology** (`WP_TOPOLOGY`): `docker`, `k8s`, or `traces` (Jaeger)
+- **metrics** (`WP_METRICS_BACKEND`): `prometheus` (or any PromQL-compatible backend) or `datadog`
 
-| Var | Default | Meaning |
-|---|---|---|
-| `WP_GRAPH_BACKEND` | `falkordb` | graph backend: `falkordb` (server) or `kuzu` (embedded) |
-| `WP_TOPOLOGY` | `docker` | topology connector: `docker`, `k8s`, or `traces` (Jaeger) |
-| `WP_METRICS_BACKEND` | `prometheus` | metrics connector: `prometheus` or `datadog` |
-| `WP_PROM_URL` | `http://localhost:9091` | Prometheus URL (or any PromQL-compatible backend) |
-| `WP_MONITORED_SERVICES` | `web,orders,db` | services expected to be scraped (blind-spot check) |
-| `WP_AUTO_REFRESH` | `1` | `0` queries a static snapshot without rebuilding |
-
-Topology and metrics are independent seams - mix `docker`/`k8s`/`traces` with
-`prometheus`/`datadog`, and override the metric queries to match your
-instrumentation. **Every variable, with per-backend deep-dives and validation
-commands, is in [docs/CONFIGURATION.md](docs/CONFIGURATION.md).**
-
----
-
-## Graph backends
-
-Default is **FalkorDB**: actively maintained, OpenCypher, with a browser UI for
-exploring the graph. **Kuzu** is an embedded fallback
-(`pip install "woodpecker-mcp[kuzu]"`, `WP_GRAPH_BACKEND=kuzu`); its upstream was
-archived in October 2025 (final release `0.11.3`, pinned). The `GraphStore`
-interface keeps either backend, and Neo4j/Memgraph drop in the same way.
+Either graph backend sits behind one `GraphStore` interface (Neo4j/Memgraph drop
+in the same way). **Every variable, with per-backend deep-dives, validation
+commands, and troubleshooting, is in
+[docs/CONFIGURATION.md](docs/CONFIGURATION.md).**
 
 ---
 
