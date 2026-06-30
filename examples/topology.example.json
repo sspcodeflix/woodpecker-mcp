@@ -1,0 +1,15 @@
+{
+  "services": [
+    {"name": "web",       "role": "app",      "status": "erroring", "error_rate": 4.2},
+    {"name": "orders",    "role": "app",      "status": "erroring", "error_rate": 3.1},
+    {"name": "db",        "role": "database", "status": "down"},
+    {"name": "payments",  "role": "app",      "status": "healthy"},
+    {"name": "reporting", "role": "app",      "status": "healthy", "monitoring": "MISSING"}
+  ],
+  "dependencies": [
+    ["web", "orders"],
+    ["orders", "db"],
+    ["payments", "db"],
+    ["reporting", "db"]
+  ]
+}

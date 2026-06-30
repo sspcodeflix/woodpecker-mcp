@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "woodpecker-mcp"
+version = "0.1.0"
+description = "MCP server that gives an LLM agent (e.g. HolmesGPT) a materialized, queryable service dependency graph in a graph database - deterministic root-cause (deepest failing service), blast radius, and observability blind-spot detection."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+dependencies = [
+    "mcp>=1.0.0",
+    "falkordb>=1.0.0",   # default graph backend (server; OpenCypher)
+    "pyyaml>=6.0",       # `setup` merges the toolset into HolmesGPT's config.yaml
+]
+
+[project.optional-dependencies]
+# Embedded fallback backend (WP_GRAPH_BACKEND=kuzu). Kuzu upstream was archived
+# Oct 2025; 0.11.3 is the final release, so it's pinned.
+kuzu = ["kuzu==0.11.3"]
+dev = ["pytest>=7", "ruff>=0.5"]
+
+[project.scripts]
+woodpecker-mcp = "woodpecker_mcp.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["woodpecker_mcp*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+markers = ["integration: requires a live FalkorDB / cluster (run with -m integration)"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 110
+target-version = "py310"
