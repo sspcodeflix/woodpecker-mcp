@@ -275,6 +275,12 @@ tool calls; confirm lines naming `woodpecker_get_topology` /
 
 To make it permanent, paste the `toolsets:` block into `~/.holmes/config.yaml`.
 
+> **PATH gotcha (the usual snag):** Holmes runs `woodpecker-mcp` as a subprocess,
+> so `command:` must resolve from Holmes's environment. Same venv -> the bare name
+> works; pipx or a separate venv -> use the absolute path
+> (`/path/to/venv/bin/woodpecker-mcp`). The subprocess also needs `docker` or
+> `kubectl` on `PATH` (hence `PATH: "{{ env.PATH }}"`) and FalkorDB reachable.
+
 ### Method B - in-cluster (HTTP transport, for the Holmes Operator)
 
 **1.** Build and push the image:

@@ -117,93 +117,13 @@ holmes ask "find the root cause of the current incident"
   even when Holmes lives in a different virtualenv.
 
 After `setup`, `holmes ask` picks up the toolset automatically - no `-t` needed.
-The manual steps below show exactly what `setup` writes, and cover the in-cluster
-/ HTTP path.
 
-### Manual setup
-
-**Prerequisites:** HolmesGPT with its own LLM configured (a model + API key, not
-woodpecker-specific), and a FalkorDB server (the graph backend).
-
-### 1. Install both (same venv is simplest)
-
-```bash
-pip install holmesgpt woodpecker-mcp
-which woodpecker-mcp        # confirm it is on PATH
-```
-
-The same venv lets Holmes launch `woodpecker-mcp` by name. Separate envs work too
-- use the absolute path in `command:` below.
-
-### 2. Run FalkorDB
-
-```bash
-docker run -d -p 6379:6379 -p 3000:3000 falkordb/falkordb:latest
-redis-cli -h localhost ping        # -> PONG
-```
-
-### 3. Drop in one YAML
-
-Save as `woodpecker-toolset.yaml` (or copy
-[`examples/holmesgpt-toolset.yaml`](examples/holmesgpt-toolset.yaml)) and set the
-`WP_*` values for your infra:
-
-```yaml
-toolsets:
-  woodpecker-graph:
-    type: mcp
-    enabled: true
-    config:
-      mode: stdio
-      command: "woodpecker-mcp"          # same venv; else an absolute path
-      args: ["serve"]
-      health_check_tool: "woodpecker_get_topology"
-      env:
-        PATH: "{{ env.PATH }}"           # so the connector finds docker/kubectl
-        WP_GRAPH_BACKEND: "falkordb"
-        WP_FALKOR_HOST: "localhost"
-        WP_TOPOLOGY: "docker"            # docker | k8s
-        WP_COMPOSE_PROJECT: "my-app"     # your infra
-        WP_PROM_URL: "http://localhost:9090"
-        WP_MONITORED_SERVICES: "web,orders,db"
-```
-
-### 4. Ask Holmes
-
-```bash
-holmes ask "find the root cause of the current incident" -t woodpecker-toolset.yaml -v
-```
-
-`-v` prints the tool calls - confirm `woodpecker_get_topology` /
-`woodpecker_diagnose_root_cause` appear. To enable it for **every** investigation,
-paste the `toolsets:` block into `~/.holmes/config.yaml` and drop the `-t`.
-
-> **PATH gotcha (the usual snag):** Holmes runs `woodpecker-mcp` as a subprocess,
-> so `command:` must resolve from Holmes's environment. Same venv -> the name
-> works; pipx or another venv -> use the absolute path
-> (`/path/to/venv/bin/woodpecker-mcp`). The subprocess also needs `docker` or
-> `kubectl` on `PATH` and FalkorDB reachable.
-
-### In-cluster (Holmes Operator, HTTP)
-
-Run woodpecker-mcp + FalkorDB as their own Deployments; Holmes connects over the
-network, no image change. Apply
-[`examples/k8s-deployment.yaml`](examples/k8s-deployment.yaml) (FalkorDB + server
-+ RBAC + NetworkPolicies; set `<IMAGE>`, `WP_PROM_URL`, `WP_K8S_NAMESPACE`), then
-point Holmes at it:
-
-```yaml
-toolsets:
-  woodpecker-graph:
-    type: mcp
-    enabled: true
-    config:
-      mode: streamable-http
-      url: "http://woodpecker-mcp.monitoring.svc.cluster.local:8000/mcp"
-```
-
-Full reference (every env var, validation, troubleshooting):
-**[docs/CONFIGURATION.md](docs/CONFIGURATION.md)**.
+Prefer to wire it by hand (the stdio toolset YAML), or run it in-cluster over HTTP
+for the Holmes Operator? Both are covered step by step - with every env var, a
+validation command, and troubleshooting - in the integration guide:
+**[docs/CONFIGURATION.md](docs/CONFIGURATION.md#step-3---integrate-with-holmesgpt)**
+(Method A = stdio, Method B = HTTP). The ready-made toolset file is
+[`examples/holmesgpt-toolset.yaml`](examples/holmesgpt-toolset.yaml).
 
 ---
 
@@ -262,26 +182,21 @@ generates a `.env` from a guided Q&A (or `cp .env.sample .env` to edit the full
 template) - the app loads `.env` from the working directory (exported env vars and
 the toolset `env:` block take precedence).
 
+The common ones (full table with per-backend deep-dives lives in the guide):
+
 | Var | Default | Meaning |
 |---|---|---|
 | `WP_GRAPH_BACKEND` | `falkordb` | graph backend: `falkordb` (server) or `kuzu` (embedded) |
-| `WP_FALKOR_HOST` / `WP_FALKOR_PORT` | `localhost` / `6379` | FalkorDB address |
 | `WP_TOPOLOGY` | `docker` | topology connector: `docker`, `k8s`, or `traces` (Jaeger) |
 | `WP_METRICS_BACKEND` | `prometheus` | metrics connector: `prometheus` or `datadog` |
-| `WP_COMPOSE_PROJECT` | `demo_env` | docker compose project to inspect |
-| `WP_K8S_NAMESPACE` | `default` | namespace to graph (when `WP_TOPOLOGY=k8s`) |
-| `WP_PROM_URL` | `http://localhost:9091` | Prometheus base URL (or any PromQL-compatible backend - Thanos, Mimir, VictoriaMetrics, Grafana Cloud) |
+| `WP_PROM_URL` | `http://localhost:9091` | Prometheus URL (or any PromQL-compatible backend) |
 | `WP_MONITORED_SERVICES` | `web,orders,db` | services expected to be scraped (blind-spot check) |
-| `WP_ERROR_RATE_QUERY` / `WP_ERROR_RATE_LABEL` | demo 5xx query / `service` | PromQL for per-service error rate; override to match your metric names |
-| `WP_DB_UP_QUERY` | `pg_up` | PromQL `0`/`1` for DB liveness; empty disables |
 | `WP_AUTO_REFRESH` | `1` | `0` queries a static snapshot without rebuilding |
 
-Metric names vary by app - override the query vars to fit your instrumentation
-(Spring Boot/Micrometer example in the docs). Topology and metrics are
-independent seams: topology is `docker`, `k8s`, or `traces` (Jaeger real call
-edges); metrics is `prometheus` or `datadog`. New Relic/CloudWatch slot in as new
-`MetricsSource` implementations behind the same interface. Exhaustive reference:
-[docs/CONFIGURATION.md](docs/CONFIGURATION.md).
+Topology and metrics are independent seams - mix `docker`/`k8s`/`traces` with
+`prometheus`/`datadog`, and override the metric queries to match your
+instrumentation. **Every variable, with per-backend deep-dives and validation
+commands, is in [docs/CONFIGURATION.md](docs/CONFIGURATION.md).**
 
 ---
 
