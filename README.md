@@ -336,5 +336,7 @@ python tests/smoke_mcp.py
 
 ## License
 
-Apache-2.0. FalkorDB is SSPL-licensed (source-available); fine for self-hosting,
-relevant if you offer it as a managed service.
+woodpecker-mcp is licensed under [Apache-2.0](LICENSE). It connects to FalkorDB
+as a client and does not redistribute it; FalkorDB itself is SSPL-licensed
+(source-available) - fine for self-hosting, relevant only if you offer FalkorDB
+as a managed service.
