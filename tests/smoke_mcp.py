@@ -1,13 +1,9 @@
-"""Spawn `woodpecker-mcp serve` over stdio (exactly how HolmesGPT launches it),
-list the tools, and call them. Targets whatever WP_KUZU_PATH / WP_AUTO_REFRESH /
-WP_PROM_URL point at:
+"""Spawn `woodpecker-mcp serve` over stdio (how HolmesGPT launches it), list the
+tools, and call them. Targets whatever the WP_* config points at.
 
-  # against a static snapshot you ingested (deterministic, no infra):
-  woodpecker-mcp ingest faulted.json
-  WP_AUTO_REFRESH=0 python tests/smoke_mcp.py
-
-  # against live infra (rebuilds the graph each call):
-  python tests/smoke_mcp.py
+  woodpecker-mcp ingest examples/topology.example.json
+  WP_AUTO_REFRESH=0 python tests/smoke_mcp.py   # static snapshot
+  python tests/smoke_mcp.py                       # live infra
 """
 import asyncio
 import json

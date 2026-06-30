@@ -1,0 +1,22 @@
+# Install once (in the project env: pip install -e ".[dev]"):
+#   pip install pre-commit
+#   pre-commit install                       # ruff lint on every commit
+#   pre-commit install --hook-type pre-push  # unit tests before every push
+#
+# Auto-formatting is available but not enforced (to keep the hand-tuned layout):
+#   ruff format .
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff                 # lint (auto-fixes safe issues) on commit
+        args: [--fix]
+
+  - repo: local
+    hooks:
+      - id: pytest-unit
+        name: pytest (unit, no live services)
+        entry: pytest -m "not integration"
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
