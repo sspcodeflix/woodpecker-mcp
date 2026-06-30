@@ -34,7 +34,7 @@ implementations behind the same interface - see
 ## Requirements
 
 - Python **3.10+** on the host/image where the server runs
-- A reachable **FalkorDB** server (the graph backend) - `docker run -p 6379:6379 -p 3000:3000 falkordb/falkordb`, or `docker compose up -d`
+- A reachable **FalkorDB** server (the graph backend) - `docker run -p 6379:6379 -p 3000:3000 falkordb/falkordb`, or `docker compose up -d`. No access to the image? See [Restricted or air-gapped environments](#restricted-or-air-gapped-environments-no-falkordb-image).
 - For the Docker Compose row: the `docker` CLI on `PATH`, with access to the Docker socket
 - For the Kubernetes row: `kubectl` on `PATH` + a kubeconfig (local) or, in a pod, an in-cluster ServiceAccount with read access to deployments + pods
 - Network access from that host to your Prometheus
@@ -226,6 +226,41 @@ redis-cli -h "$WP_FALKOR_HOST" -p 6379 PING        # -> PONG
 
 Prefer no server? Use the embedded Kuzu fallback: `pip install
 "woodpecker-mcp[kuzu]"` and set `WP_GRAPH_BACKEND=kuzu`.
+
+### Restricted or air-gapped environments (no FalkorDB image)
+
+The FalkorDB container image is not a hard requirement. Two routes:
+
+**Route A - no image at all (embedded Kuzu).** Kuzu is an in-process file
+database shipped as a Python wheel - no server, no port, no image:
+
+```bash
+pip install "woodpecker-mcp[kuzu]"          # from your internal PyPI mirror
+export WP_GRAPH_BACKEND=kuzu
+export WP_KUZU_PATH=/data/woodpecker.kuzu    # mount a volume here to persist
+woodpecker-mcp setup                         # with kuzu, setup does NOT start FalkorDB
+```
+
+`setup` starts FalkorDB only when `WP_GRAPH_BACKEND=falkordb`; on Kuzu it just
+registers the Holmes toolset. Trade-offs: no FalkorDB browser UI (use
+`woodpecker-mcp topology` / `diagnose` or the Python client), single process (the
+normal layout), and Kuzu upstream is archived and pinned to `0.11.3` (MIT, so the
+wheel can be vendored). Good fit for locked-down hosts.
+
+**Route B - get FalkorDB through approved channels.** woodpecker-mcp is only a
+client, so the image just has to exist somewhere you can reach:
+
+| Situation | What to do |
+|---|---|
+| Internal registry (Harbor, Artifactory, ECR, ...) | Have the platform team mirror `falkordb/falkordb`, then set the image in `docker-compose.yml` / [`examples/k8s-deployment.yaml`](../examples/k8s-deployment.yaml) to the internal path (e.g. `registry.corp/falkordb/falkordb:<tag>`). |
+| Air-gapped host | On a connected machine: `docker pull falkordb/falkordb && docker save -o falkordb.tar falkordb/falkordb`. Move the tarball in, then `docker load -i falkordb.tar`. |
+| FalkorDB already hosted (platform team or FalkorDB Cloud) | Skip the image. Set `WP_FALKOR_HOST` / `WP_FALKOR_PORT` / `WP_FALKOR_PASSWORD` and run `woodpecker-mcp setup --no-falkordb` so it does not start its own. |
+
+The CLI `setup` auto-start uses the public `falkordb/falkordb` image; for an
+internal-registry image, use the manifests above or `--no-falkordb` and start it
+yourself. A backend your org has already approved (Neo4j, Memgraph) can be added
+behind the `GraphStore` interface without touching the reasoning code, but is not
+shipped today (only `falkordb` and `kuzu` exist).
 
 ---
 
