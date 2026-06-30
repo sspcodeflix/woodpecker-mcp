@@ -20,12 +20,13 @@ or plugin is required.
 
 ## Why this exists
 
-HolmesGPT markets a "Runtime Dependency Graph", but its source has no graph data
-structure, no graph database, and no graph-traversal code. It infers relationships
-on the fly from traces, Kubernetes owner-refs, and metric labels during each
-investigation, then discards them; root cause is whatever the model concludes via
-a "five whys" prompt. That is deliberate (freshness, statelessness, breadth), but
-it has costs that a materialized graph removes:
+HolmesGPT markets a "Runtime Dependency Graph", yet its source holds no graph
+data structure, no graph database, and no graph-traversal code. Each
+investigation infers the relationships on the fly - from traces, Kubernetes
+owner-refs, and metric labels - then discards them, and root cause is whatever
+the model concludes through a "five whys" prompt. That design is deliberate - it
+buys freshness, statelessness, and breadth - but it carries costs that a
+materialized graph removes:
 
 | | Holmes (inferred) | woodpecker-mcp (materialized) |
 |---|---|---|
