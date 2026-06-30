@@ -108,6 +108,20 @@ def test_interactive_env_non_tty_falls_back_to_template(tmp_path, monkeypatch):
     assert p.read_text() == ENV_SAMPLE
 
 
+def test_start_falkordb_uses_explicit_image(monkeypatch):
+    monkeypatch.setattr(scaffold.shutil, "which", lambda _: None)   # no docker -> manual hint
+    msg = scaffold.start_falkordb(image="registry.corp/falkordb/falkordb:1.2")
+    assert "registry.corp/falkordb/falkordb:1.2" in msg
+
+
+def test_start_falkordb_defaults_to_config_image(monkeypatch):
+    import woodpecker_mcp.config as cfg
+    monkeypatch.setattr(scaffold.shutil, "which", lambda _: None)
+    monkeypatch.setattr(cfg, "FALKOR_IMAGE", "registry.corp/mirror/falkordb:9")
+    msg = scaffold.start_falkordb()                                 # no image arg -> config default
+    assert "registry.corp/mirror/falkordb:9" in msg
+
+
 def test_interactive_env_full_flow(tmp_path, monkeypatch):
     monkeypatch.setattr(scaffold.sys, "stdin", type("S", (), {"isatty": lambda self: True})())
     monkeypatch.setattr(scaffold, "_secret", lambda label: "")

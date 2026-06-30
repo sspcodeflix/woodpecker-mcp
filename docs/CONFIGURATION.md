@@ -83,6 +83,7 @@ have working defaults.**
 | `WP_GRAPH_BACKEND` | `falkordb` | Optional | `falkordb` or `kuzu` |
 | `WP_FALKOR_HOST` | `localhost` | Set this (in-cluster) | `falkordb` (the Service name) |
 | `WP_FALKOR_PORT` | `6379` | Optional | `6379` |
+| `WP_FALKOR_IMAGE` | `falkordb/falkordb:latest` | Set for an internal registry | `registry.corp/falkordb/falkordb:4` |
 | `WP_PROM_URL` | `http://localhost:9091` | **Set this** | `http://prometheus-operated.monitoring.svc.cluster.local:9090` |
 | `WP_MONITORED_SERVICES` | `web,orders,db` | **Set this** | `web,orders,checkout,payments,db` |
 | `WP_TOPOLOGY` | `docker` | Set if not Docker | `docker`, `k8s`, or `traces` |
@@ -252,15 +253,14 @@ client, so the image just has to exist somewhere you can reach:
 
 | Situation | What to do |
 |---|---|
-| Internal registry (Harbor, Artifactory, ECR, ...) | Have the platform team mirror `falkordb/falkordb`, then set the image in `docker-compose.yml` / [`examples/k8s-deployment.yaml`](../examples/k8s-deployment.yaml) to the internal path (e.g. `registry.corp/falkordb/falkordb:<tag>`). |
+| Internal registry (Harbor, Artifactory, ECR, ...) | Have the platform team mirror `falkordb/falkordb`. For `woodpecker-mcp setup`, set `WP_FALKOR_IMAGE=registry.corp/falkordb/falkordb:<tag>` and it pulls from there. For the manifests, set the image in `docker-compose.yml` / [`examples/k8s-deployment.yaml`](../examples/k8s-deployment.yaml). |
 | Air-gapped host | On a connected machine: `docker pull falkordb/falkordb && docker save -o falkordb.tar falkordb/falkordb`. Move the tarball in, then `docker load -i falkordb.tar`. |
 | FalkorDB already hosted (platform team or FalkorDB Cloud) | Skip the image. Set `WP_FALKOR_HOST` / `WP_FALKOR_PORT` / `WP_FALKOR_PASSWORD` and run `woodpecker-mcp setup --no-falkordb` so it does not start its own. |
 
-The CLI `setup` auto-start uses the public `falkordb/falkordb` image; for an
-internal-registry image, use the manifests above or `--no-falkordb` and start it
-yourself. A backend your org has already approved (Neo4j, Memgraph) can be added
-behind the `GraphStore` interface without touching the reasoning code, but is not
-shipped today (only `falkordb` and `kuzu` exist).
+`setup` defaults to the public `falkordb/falkordb` image; set `WP_FALKOR_IMAGE`
+to pull from an internal mirror instead. A backend your org has already approved
+(Neo4j, Memgraph) can be added behind the `GraphStore` interface without touching
+the reasoning code, but is not shipped today (only `falkordb` and `kuzu` exist).
 
 ---
 

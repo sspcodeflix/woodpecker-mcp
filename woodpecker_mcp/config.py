@@ -32,6 +32,11 @@ FALKOR_PORT = int(os.environ.get("WP_FALKOR_PORT", "6379"))
 FALKOR_GRAPH = os.environ.get("WP_FALKOR_GRAPH", "woodpecker")
 FALKOR_PASSWORD = os.environ.get("WP_FALKOR_PASSWORD") or None
 
+# Image `woodpecker-mcp setup` runs for FalkorDB. Point it at an internal
+# registry mirror in restricted/air-gapped environments (e.g.
+# registry.corp/falkordb/falkordb:<tag>).
+FALKOR_IMAGE = os.environ.get("WP_FALKOR_IMAGE", "falkordb/falkordb:latest")
+
 # Kuzu embedded DB path (used when WP_GRAPH_BACKEND=kuzu).
 KUZU_PATH = os.environ.get("WP_KUZU_PATH", "./woodpecker.kuzu")
 

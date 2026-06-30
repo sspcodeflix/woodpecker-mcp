@@ -26,6 +26,9 @@ WP_FALKOR_PORT=6379
 WP_FALKOR_GRAPH=woodpecker
 # Uncomment if your FalkorDB requires a password.
 # WP_FALKOR_PASSWORD=
+# Image `woodpecker-mcp setup` starts for FalkorDB. Point at an internal
+# registry mirror in restricted/air-gapped environments.
+# WP_FALKOR_IMAGE=falkordb/falkordb:latest
 
 # ============================================================
 # Topology connector - where services + dependencies are read from
@@ -249,10 +252,13 @@ def interactive_env(path=".env", force=False):
             f"metrics={a['metrics']}).\nReview it, then run `woodpecker-mcp setup`.")
 
 
-def start_falkordb(name="woodpecker-falkordb", image="falkordb/falkordb:latest"):
+def start_falkordb(name="woodpecker-falkordb", image=None):
+    if image is None:
+        from . import config
+        image = config.FALKOR_IMAGE
     if not shutil.which("docker"):
         return ("docker not found - start FalkorDB manually:\n"
-                "  docker run -d -p 6379:6379 -p 3000:3000 falkordb/falkordb:latest")
+                f"  docker run -d -p 6379:6379 -p 3000:3000 {image}")
 
     def _docker(*args):
         return subprocess.run(["docker", *args], capture_output=True, text=True)
@@ -266,7 +272,7 @@ def start_falkordb(name="woodpecker-falkordb", image="falkordb/falkordb:latest")
         return f"started existing FalkorDB ({name})." if r.returncode == 0 else f"could not start {name}: {r.stderr.strip()}"
     r = _docker("run", "-d", "--name", name, "-p", "6379:6379", "-p", "3000:3000", image)
     if r.returncode == 0:
-        return f"started FalkorDB ({name}) on :6379, browser :3000."
+        return f"started FalkorDB ({name}, {image}) on :6379, browser :3000."
     # The browser port (3000) is often taken (Grafana etc.); retry with 6379 only.
     _docker("rm", "-f", name)
     r2 = _docker("run", "-d", "--name", name, "-p", "6379:6379", image)
