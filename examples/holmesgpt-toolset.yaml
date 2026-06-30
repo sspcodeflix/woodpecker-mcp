@@ -3,7 +3,7 @@
 #   holmes ask "find the root cause" -t examples/holmesgpt-toolset.yaml
 #   # or merge the `toolsets:` block into ~/.holmes/config.yaml
 #
-# HolmesGPT stays vanilla — it only launches this server as a subprocess and
+# HolmesGPT stays vanilla - it only launches this server as a subprocess and
 # discovers its tools. No fork, no custom Holmes image.
 
 toolsets:
@@ -11,8 +11,8 @@ toolsets:
     type: mcp
     enabled: true
     description: >-
-      Materialized service dependency graph (Kùzu). Deterministic deepest-failing-
-      service root cause, blast radius, and observability blind-spot detection —
+      Materialized service dependency graph (Kuzu). Deterministic deepest-failing-
+      service root cause, blast radius, and observability blind-spot detection -
       the relationship reasoning Holmes infers ephemerally per-investigation but
       never stores. Call woodpecker_get_topology first, then
       woodpecker_diagnose_root_cause.
@@ -23,15 +23,16 @@ toolsets:
       health_check_tool: "woodpecker_get_topology"
       env:
         PATH: "{{ env.PATH }}"           # so the topology connector finds docker/kubectl
+        WP_GRAPH_BACKEND: "falkordb"     # requires a FalkorDB server (docker run falkordb/falkordb)
+        WP_FALKOR_HOST: "localhost"
         WP_TOPOLOGY: "docker"            # docker | k8s
         WP_COMPOSE_PROJECT: "demo_env"
         WP_PROM_URL: "http://localhost:9091"
-        WP_KUZU_PATH: "/tmp/woodpecker.kuzu"
 
 # --- In-cluster (Holmes Operator) variant ---------------------------------
 # Deploy woodpecker-mcp as its OWN Deployment+Service running `woodpecker-mcp
 # serve --http`, then point Holmes at it over the network (no subprocess, no
-# image change) — same pattern Robusta uses for its own MCP servers:
+# image change) - same pattern Robusta uses for its own MCP servers:
 #
 # toolsets:
 #   woodpecker-graph:

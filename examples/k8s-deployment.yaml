@@ -1,0 +1,169 @@
+# woodpecker-mcp as an in-cluster HTTP MCP server for the HolmesGPT Operator,
+# backed by FalkorDB, using the Kubernetes topology connector (reads the cluster
+# via its in-cluster ServiceAccount). Apply, then point Holmes at:
+#   http://woodpecker-mcp.monitoring.svc.cluster.local:8000/mcp
+#
+# Replace: <IMAGE>, the WP_PROM_URL value, WP_K8S_NAMESPACE (the namespace whose
+# services you want graphed), and WP_MONITORED_SERVICES.
+#
+# ---- FalkorDB (the graph backend) ----
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: falkordb
+  namespace: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: falkordb }
+  template:
+    metadata:
+      labels: { app: falkordb }
+    spec:
+      containers:
+        - name: falkordb
+          image: falkordb/falkordb:latest
+          ports:
+            - containerPort: 6379
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          emptyDir: {}            # swap for a PVC in production
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: falkordb
+  namespace: monitoring
+spec:
+  selector: { app: falkordb }
+  ports:
+    - port: 6379
+      targetPort: 6379
+---
+# Only woodpecker-mcp may reach FalkorDB.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: falkordb
+  namespace: monitoring
+spec:
+  podSelector:
+    matchLabels: { app: falkordb }
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels: { app: woodpecker-mcp }
+      ports:
+        - protocol: TCP
+          port: 6379
+---
+# ---- woodpecker-mcp (the MCP server) ----
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: woodpecker-mcp
+  namespace: monitoring
+---
+# Read-only access to the workloads woodpecker-mcp graphs. This Role lives in the
+# namespace being INSPECTED (here: demo). If that's a different namespace than
+# where woodpecker-mcp runs, the RoleBinding still references the SA in monitoring.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: woodpecker-mcp-reader
+  namespace: demo
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: woodpecker-mcp-reader
+  namespace: demo
+subjects:
+  - kind: ServiceAccount
+    name: woodpecker-mcp
+    namespace: monitoring
+roleRef:
+  kind: Role
+  name: woodpecker-mcp-reader
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: woodpecker-mcp
+  namespace: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: woodpecker-mcp }
+  template:
+    metadata:
+      labels: { app: woodpecker-mcp }
+    spec:
+      serviceAccountName: woodpecker-mcp
+      containers:
+        - name: woodpecker-mcp
+          image: <IMAGE>                      # e.g. ghcr.io/you/woodpecker-mcp:0.1.0
+          args: ["serve", "--http", "--port", "8000"]
+          ports:
+            - containerPort: 8000
+          env:
+            - name: WP_GRAPH_BACKEND
+              value: "falkordb"
+            - name: WP_FALKOR_HOST
+              value: "falkordb"                # the FalkorDB Service above
+            - name: WP_TOPOLOGY
+              value: "k8s"
+            - name: WP_K8S_NAMESPACE
+              value: "demo"                    # namespace to graph (matches the Role above)
+            # WP_K8S_CONTEXT is left unset -> uses the in-cluster ServiceAccount.
+            - name: WP_PROM_URL
+              value: "http://prometheus-operated.monitoring.svc.cluster.local:9090"
+            - name: WP_MONITORED_SERVICES
+              value: "web,orders,db"
+          livenessProbe:
+            tcpSocket: { port: 8000 }
+            initialDelaySeconds: 5
+          readinessProbe:
+            tcpSocket: { port: 8000 }
+            initialDelaySeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: woodpecker-mcp
+  namespace: monitoring
+spec:
+  selector: { app: woodpecker-mcp }
+  ports:
+    - port: 8000
+      targetPort: 8000
+---
+# Restrict the MCP port to Holmes pods only.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: woodpecker-mcp
+  namespace: monitoring
+spec:
+  podSelector:
+    matchLabels: { app: woodpecker-mcp }
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels: { app: holmes }
+      ports:
+        - protocol: TCP
+          port: 8000
