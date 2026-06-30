@@ -9,6 +9,23 @@ description = "MCP server that gives an LLM agent (e.g. HolmesGPT) a materialize
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Apache-2.0" }
+authors = [{ name = "Soumya" }]
+keywords = ["mcp", "holmesgpt", "sre", "observability", "root-cause-analysis",
+            "dependency-graph", "incident-response", "falkordb", "kubernetes"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: System :: Monitoring",
+    "Topic :: System :: Systems Administration",
+    "Topic :: Software Development :: Libraries",
+]
 dependencies = [
     "mcp>=1.0.0",
     "falkordb>=1.0.0",   # default graph backend (server; OpenCypher)
@@ -20,6 +37,11 @@ dependencies = [
 # Oct 2025; 0.11.3 is the final release, so it's pinned.
 kuzu = ["kuzu==0.11.3"]
 dev = ["pytest>=7", "ruff>=0.5"]
+
+[project.urls]
+Homepage = "https://github.com/sspcodeflix/woodpecker-mcp"
+Repository = "https://github.com/sspcodeflix/woodpecker-mcp"
+Issues = "https://github.com/sspcodeflix/woodpecker-mcp/issues"
 
 [project.scripts]
 woodpecker-mcp = "woodpecker_mcp.cli:main"
