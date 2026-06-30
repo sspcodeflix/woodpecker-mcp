@@ -5,14 +5,16 @@
 ![python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![backend](https://img.shields.io/badge/graph-FalkorDB-ff4438)
 
-A **materialized service dependency graph as an MCP toolset.** It gives an LLM
-agent such as [HolmesGPT](https://github.com/robusta-dev/holmesgpt) the one thing
-those agents do not keep: a persistent, queryable graph of how services depend on
-each other, so root cause is a deterministic graph traversal instead of a
-per-investigation guess.
+**woodpecker-mcp exposes a materialized service dependency graph as an MCP
+toolset.** It provides an LLM-based agent such as
+[HolmesGPT](https://github.com/robusta-dev/holmesgpt) with a capability those
+agents do not retain on their own: a persistent, queryable graph of how services
+depend on one another. Root-cause analysis therefore becomes a deterministic
+graph traversal rather than a conclusion re-derived on each investigation.
 
-Holmes stays vanilla. It launches woodpecker-mcp as a subprocess (or connects
-over HTTP) and discovers its tools. No fork, no custom image.
+HolmesGPT remains unmodified. It launches woodpecker-mcp as a subprocess (or
+connects over HTTP) and discovers the tools it exposes - no fork, custom image,
+or plugin is required.
 
 ---
 
@@ -39,12 +41,12 @@ it has costs that a materialized graph removes:
 
 ```mermaid
 flowchart TD
-    H[MCP client / HolmesGPT] -->|stdio or HTTP| S[server.py - FastMCP tools]
-    S --> B[build.refresh]
-    B -->|reads| C[sources/: Topology + Metrics<br/>docker / k8s / prometheus]
-    B -->|ingests| G[(FalkorDB<br/>materialized graph)]
-    S --> D[diagnose.py]
-    D -->|Cypher: roots, blast radius, paths| G
+    H["MCP client (e.g. HolmesGPT)"] -->|stdio or HTTP| S["server.py - FastMCP tools"]
+    S -->|refresh| B[build.refresh]
+    S -->|diagnose| D[diagnose.py]
+    B -->|reads live state| C["sources/<br/>topology: docker / k8s / traces<br/>metrics: prometheus / datadog"]
+    B -->|materializes| G[("FalkorDB<br/>dependency graph")]
+    D -->|"Cypher: roots, blast radius, paths"| G
 ```
 
 The graph is rebuilt from live sources on each query (or from a static topology
