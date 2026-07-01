@@ -63,6 +63,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--id", help="run a single scenario by id")
     ap.add_argument("--settle", type=int, default=45, help="seconds to wait after inject")
+    ap.add_argument("--recover", type=int, default=20, help="seconds to wait after heal")
     ap.add_argument("--runs", type=int, default=3, help="diagnose repeats for determinism")
     ap.add_argument("--out", default="results.csv")
     args = ap.parse_args()
@@ -81,6 +82,7 @@ def main():
                          "facet": "-", "expected_detect": s["expected_detect"], "detected": False,
                          "blast_expected": len(s["expected_blast"]), "blast_coverage_pct": 0,
                          "deterministic": False, "verdict": f"ERROR: {str(e)[:40]}"})
+        time.sleep(args.recover)  # let the heal recover before the next inject
 
     with open(args.out, "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=list(rows[0]))
