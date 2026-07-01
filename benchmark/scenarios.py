@@ -38,8 +38,12 @@ def readiness_fail(svc):
 
 
 def oomkill(svc):
-    to = '[{"op":"replace","path":"/spec/template/spec/containers/0/resources/limits/memory","value":"%s"}]'
-    return _patch(svc, to % "8Mi"), _patch(svc, to % "64Mi")
+    # Replace the whole resources block: memory limit must be >= request, so set
+    # both to 12Mi - too little for the Python app, which OOMKills into crashloop.
+    to = '[{"op":"replace","path":"/spec/template/spec/containers/0/resources","value":%s}]'
+    low = '{"requests":{"cpu":"20m","memory":"12Mi"},"limits":{"cpu":"100m","memory":"12Mi"}}'
+    orig = '{"requests":{"cpu":"20m","memory":"32Mi"},"limits":{"cpu":"100m","memory":"64Mi"}}'
+    return _patch(svc, to % low), _patch(svc, to % orig)
 
 
 def scale_zero(svc):
