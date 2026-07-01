@@ -50,6 +50,29 @@ for f in orders payments db; do
 done
 ```
 
+## Fault catalog (25+ scenarios)
+
+[`scenarios.py`](scenarios.py) defines a matrix of failure modes x graph
+positions - crashloop, bad image, readiness failure, OOM kill, blind spot, and
+the honest "scale-to-0" limit - across the topology (leaf to entry point). List
+them:
+
+```bash
+python scenarios.py        # 25 scenarios: id, service, mechanism, blast size
+```
+
+[`sweep.py`](sweep.py) drives the catalog: for each scenario it injects the
+fault, waits, scores whether woodpecker names the right root, covers the full
+blast radius, and is deterministic - then heals - and writes `results.csv`:
+
+```bash
+python sweep.py --id crashloop-db      # one scenario
+python sweep.py                        # whole catalog (~1 min each)
+```
+
+The two `scalezero-*` rows are expected to under-detect (0 pods reads as
+"unknown") - they document a real limit, not a pass.
+
 ## HolmesGPT comparison (optional)
 
 To contrast with an LLM-only agent, run HolmesGPT with the woodpecker toolset
