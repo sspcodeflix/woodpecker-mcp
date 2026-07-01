@@ -1,3 +1,4 @@
 .env
 results.csv
 *.out
+logs/

@@ -73,9 +73,31 @@ python sweep.py                        # whole catalog (~1 min each)
 The two `scalezero-*` rows are expected to under-detect (0 pods reads as
 "unknown") - they document a real limit, not a pass.
 
-## HolmesGPT comparison (optional)
+## HolmesGPT comparison
 
-To contrast with an LLM-only agent, run HolmesGPT with the woodpecker toolset
-disabled vs enabled on the *same live fault* and compare how much of the
-ground-truth blast radius each recovers, and whether it is the same across runs.
-`run.sh` / `score_holmes.py` drive that arm (see the project blog for the writeup).
+Contrast an LLM-only agent with the graph. On the *same live fault*, run
+HolmesGPT with the woodpecker toolset disabled vs enabled and score how much of
+the ground-truth blast radius each recovers - and whether it names the same set
+each run.
+
+Holmes is prompted to end its answer with `ROOT: <svc>` and `AFFECTED: <svc,...>`
+so recall is scored precisely and fairly - same model and prompt in both arms,
+only the toolset differs.
+
+Setup: put your key in `benchmark/.env` (`DEEPSEEK_API_KEY=...`), and make sure
+`woodpecker-mcp setup` has added the `woodpecker-graph` toolset to
+`~/.holmes/config.yaml` (the runner flips its `enabled` flag per arm).
+
+```bash
+./compare.sh db          # crashloop-db, 3 runs per arm; prints recall + consistency
+./compare.sh catalog     # blast radius 5
+./compare.sh orders      # blast radius 3
+```
+
+Because it costs LLM calls, keep it to a few scenarios across blast sizes (db=11,
+catalog=5, orders=3) rather than the full catalog. Individual pieces:
+
+```bash
+./run.sh alone "<prompt>" out.log      # one arm, one run
+python score_holmes.py --fault db logs/db-alone-*.log
+```
