@@ -1,7 +1,7 @@
 """woodpecker-mcp CLI.
 
   woodpecker-mcp init [--defaults] [--force]       # guided .env (--defaults = template)
-  woodpecker-mcp setup [--config PATH] [--no-falkordb]   # start FalkorDB + wire into HolmesGPT
+  woodpecker-mcp setup [--config PATH] [--no-falkordb] [--no-config]   # start FalkorDB + wire into HolmesGPT
   woodpecker-mcp serve [--http] [--host 0.0.0.0] [--port 8000]   # MCP server (stdio default)
   woodpecker-mcp refresh                          # rebuild the graph from live sources
   woodpecker-mcp ingest <file.json>               # load a static topology (offline study)
@@ -55,9 +55,12 @@ def main(argv=None):
             if "--no-falkordb" not in argv:
                 print(start_falkordb())
             print(falkordb_status_line(config.FALKOR_HOST, config.FALKOR_PORT, config.FALKOR_PASSWORD))
-        cfg = argv[argv.index("--config") + 1] if "--config" in argv else "~/.holmes/config.yaml"
-        print(patch_holmes_config(cfg))
-        print('Done. Run:  holmes ask "find the root cause of the current incident"')
+        if "--no-config" in argv:
+            print("skipped HolmesGPT config patch (--no-config); attach the toolset yourself with -t")
+        else:
+            cfg = argv[argv.index("--config") + 1] if "--config" in argv else "~/.holmes/config.yaml"
+            print(patch_holmes_config(cfg))
+            print('Done. Run:  holmes ask "find the root cause of the current incident"')
         return 0
 
     if cmd == "ingest":
